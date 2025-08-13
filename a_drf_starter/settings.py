@@ -43,6 +43,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # * custom middlewares
+    'accounts.middlewares.InjectCsrfCookieMiddleware',
 ]
 
 ROOT_URLCONF = 'a_drf_starter.urls'
@@ -123,6 +126,7 @@ AUTH_USER_MODEL = 'accounts.User'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'accounts.authentication.CookieJwtAuthentication',
+        'rest_framework.authentication.SessionAuthentication',  #  TODO (remove if debugging): needed for CSRF enforcement
     ),
 
 }

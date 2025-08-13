@@ -45,7 +45,6 @@ python manage.py runserver
 | POST   | `/api/accounts/login/`         | Login & set cookies 
 | POST   | `/api/accounts/logout/`        | Logout & clear cookies
 | GET    | `/api/accounts/me/`            | Get current user info 
-| PATCH  | `/api/accounts/me/`            | Update user info      
 | POST   | `/api/accounts/token/refresh/` | Refresh access token  
 
 ---
@@ -60,6 +59,12 @@ Because JWTs are stored in cookies, **CSRF is enforced** for all unsafe HTTP met
 Example fetch:
 
 ```js
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
 fetch('/api/accounts/me/', {
   method: 'PATCH',
   credentials: 'include',
@@ -67,7 +72,7 @@ fetch('/api/accounts/me/', {
     'Content-Type': 'application/json',
     'X-CSRFToken': getCookie('csrftoken')
   },
-  body: JSON.stringify({ email: 'fake@fake.fake', password: '123' })
+
 });
 ```
 

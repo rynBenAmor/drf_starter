@@ -36,6 +36,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # * 3rd party
+    "corsheaders.middleware.CorsMiddleware",
+    
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -131,6 +134,10 @@ REST_FRAMEWORK = {
 
 }
 
+# * ======================================================================
+# * 3rd party settings
+# * ======================================================================
+
 from datetime import timedelta
 
 SIMPLE_JWT = {
@@ -140,5 +147,8 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": False,
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True # or use CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS =True
+""" CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+] """

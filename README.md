@@ -82,3 +82,37 @@ fetch('/api/accounts/me/', {
 
 * `CORS_ALLOW_CREDENTIALS = True` is required so cookies are sent with cross-origin requests.
 * `SameSite=None` and `Secure=True` are set on cookies for cross-site HTTPS usage.
+
+---
+
+- You must create a `.env` file from the start.
+
+<details>
+<summary>Example <code>.env</code> file</summary>
+
+```env
+EMAIL_HOST_USER="fake@fake.fake"
+DEFAULT_FROM_EMAIL="fake@fake.fake"
+EMAIL_HOST_PASSWORD="fake app password"
+EMAIL_PORT=587
+
+DJANGO_IS_PRODUCTION=False
+# You can use: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+DJANGO_SECRET_KEY="django-insecure-r01(sc^4!ugxu##tmb*q&5l!@o7tejc3#%50mh9nn6od3hss#c"
+DJANGO_ADMIN_EMAIL_1=""
+
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+ALLOWED_HOSTS=localhost,127.0.0.1,
+
+DB_TYPE='sqlite'
+DB_NAME=''
+DB_USER=''
+DB_PASSWORD=''
+# Use "db" if Django is run inside Docker, else "host.docker.internal" or "localhost"
+DB_HOST=localhost
+DB_PORT=5432
+
+
+
+```
+</details>

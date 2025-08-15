@@ -94,7 +94,7 @@ class CookieTokenRefreshView(TokenRefreshView):
             refresh = RefreshToken(refresh_token)
             access_token = str(refresh.access_token)
 
-            response = Response({"message": "access token refreshed successfully, come back again :)", "user": UserSerializer(refresh.access_token['user_id']).data}, status=status.HTTP_200_OK)
+            response = Response({"message": "access token refreshed successfully, come back again :)"}, status=status.HTTP_200_OK)
             response.set_cookie(key='access_token', value=access_token, httponly=True, samesite='None', secure=True)
             return response
         

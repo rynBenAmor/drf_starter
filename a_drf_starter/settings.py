@@ -1,22 +1,57 @@
 
 
 from pathlib import Path
+from decouple import config
 
+
+# * ----------------------------------------------------------------------------------------------------------
+# * variable setup
+# * ----------------------------------------------------------------------------------------------------------
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+DJANGO_SECRET_KEY = config('DJANGO_SECRET_KEY', cast=str)
+DJANGO_IS_PRODUCTION = config('DJANGO_IS_PRODUCTION', default=True, cast=bool)
+DB_TYPE = config('DB_TYPE')
+DJANGO_CUSTOM_ADMIN_URL ="admin/" # if using the admin at all
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+print(
+    "=============================\n"
+    f"  Production: {DJANGO_IS_PRODUCTION}\n"
+    f"  Database:   {DB_TYPE}\n"
+    "============================="
+)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s5ech*s@+3e4vf#crxios3y_j$u$g@y5qw6s#a*tt!m7m9@21('
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# * ----------------------------------------------------------------------------------------------------
+# * Security settings 
+# * ----------------------------------------------------------------------------------------------------
+DEBUG = not DJANGO_IS_PRODUCTION
+SECRET_KEY = DJANGO_SECRET_KEY
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='').split(',') if h.strip()]
+INTERNAL_IPS = ["127.0.0.1"]
 
+# CSRF & Session security
+CSRF_COOKIE_HTTPONLY = False  # !important for the js frontend to have this accessible
+CSRF_COOKIE_SECURE = DJANGO_IS_PRODUCTION
+SESSION_COOKIE_SECURE = DJANGO_IS_PRODUCTION
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 60  # 60 days
+
+# SSL / HSTS
+SECURE_SSL_REDIRECT = DJANGO_IS_PRODUCTION
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+
+if DJANGO_IS_PRODUCTION :
+    ADMINS = [
+        ("Administration", config('DJANGO_ADMIN_EMAIL_1', cast=str)),
+    ]
 
 # Application definition
 
@@ -28,10 +63,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # * 3rd party
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 
+    # * my apps
     'accounts',
 ]
 
@@ -71,15 +108,31 @@ TEMPLATES = [
 WSGI_APPLICATION = 'a_drf_starter.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# * ----------------------------------------------------------------------------------------------------------
+# * Database
+# * ----------------------------------------------------------------------------------------------------------
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if DB_TYPE == 'sqlite':  # Switch to SQLite
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:  # Switch to PostgreSQL
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME'),
+            'USER': config('DB_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST'),
+            'PORT': config('DB_PORT', default='5432', cast=int),
+        }
+    }
+
 
 
 # Password validation
@@ -113,10 +166,29 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+# * ----------------------------------------------------------------------------------------------------------
+# * Static files (CSS, JavaScript, Images)
+# * ----------------------------------------------------------------------------------------------------------
 
-STATIC_URL = 'static/'
+# Static & Media
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+    },
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+}
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -126,18 +198,41 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.User'
 
+
+
+# * ----------------------------------------------------------------------------------------------------------
+# * Mailing
+# * ----------------------------------------------------------------------------------------------------------
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Email server configuration
+if DJANGO_IS_PRODUCTION:
+    
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_USE_TLS = True
+
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+    EMAIL_PORT = config('EMAIL_PORT', cast=int)
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
+
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+
+# * ======================================================================
+# * DRF / JWT
+# * ======================================================================
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'accounts.authentication.CookieJwtAuthentication',
-        'rest_framework.authentication.SessionAuthentication',  #  TODO (remove if debugging): needed for CSRF enforcement
+        'rest_framework.authentication.SessionAuthentication',  #  TODO (remove if debugging with Postman): needed for CSRF enforcement
     ),
 
 }
-
-# * ======================================================================
-# * 3rd party settings
-# * ======================================================================
-
 from datetime import timedelta
 
 SIMPLE_JWT = {
@@ -147,8 +242,19 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": False,
 }
 
-CORS_ALLOW_ALL_ORIGINS = True # or use CORS_ALLOWED_ORIGINS
+
+# * ======================================================================
+# * CORS / CSRF
+# * ======================================================================
+
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True # doesn't matter in dev
+else:
+    CORS_ALLOWED_ORIGINS = [h.strip() for h in config('CORS_ALLOWED_ORIGINS', default='').split(',') if h.strip()]
+    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
 CORS_ALLOW_CREDENTIALS =True
-""" CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-] """
+
+
+
+

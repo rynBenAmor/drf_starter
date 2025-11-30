@@ -228,8 +228,11 @@ else:
 # * ======================================================================
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'accounts.authentication.CookieJwtAuthentication',
-        'rest_framework.authentication.SessionAuthentication',  #  TODO (remove if debugging with Postman): needed for CSRF enforcement
+
+        'accounts.authentication.HybridJwtAuthentication', # sytem decides based on authentication headers (Bearer) or cookies (HttpOnly)
+        
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication', # or simply use this built-in class
+
     ),
 
 }
@@ -238,8 +241,10 @@ from datetime import timedelta
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+
+    # can turn these two off during development
+    "ROTATE_REFRESH_TOKENS": True, 
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 
@@ -247,14 +252,15 @@ SIMPLE_JWT = {
 # * CORS / CSRF
 # * ======================================================================
 
+# can remove cors header if using a reverse proxy btw
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True # doesn't matter in dev
 else:
     CORS_ALLOWED_ORIGINS = [h.strip() for h in config('CORS_ALLOWED_ORIGINS', default='').split(',') if h.strip()]
-    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
 
 CORS_ALLOW_CREDENTIALS =True
-
+CSRF_TRUSTED_ORIGINS = [h.strip() for h in config('CORS_ALLOWED_ORIGINS', default='').split(',') if h.strip()]
 
 
 

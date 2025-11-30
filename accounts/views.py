@@ -14,7 +14,6 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
 
 
-
 class UserInfoView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
@@ -38,19 +37,20 @@ class UserLoginView(APIView):
             refresh_token =  RefreshToken.for_user(user)
             access_token = str(refresh_token.access_token)
     
-            # ? send user info and tokens to client side
+            # * send user info and tokens: important for generic jwt authentication
             response = Response({
                 "user": UserSerializer(user).data,
+                "access": access_token,
+                "refresh": str(refresh_token),
             }, status=status.HTTP_200_OK
             )
 
-            # ? httponly cookie jwt token
+            # * set the httponly cookie jwt tokens: important for httpOnly authentication
             response.set_cookie(key='refresh_token', value=str(refresh_token), httponly=True, samesite='None', secure=True)
             response.set_cookie(key='access_token', value=access_token, httponly=True, samesite='None', secure=True, max_age=300)
 
-            # ? js readable csrf token for the frontend to send back as 'X-CSRFToken': getCookie('csrftoken'),
-            csrf_token = get_token(request)
-            response.set_cookie(key='csrftoken', value=csrf_token, httponly=False, secure=True, samesite='None')
+            # ? InjectCsrfCookieMiddleware already injects the csrf token in every response
+            
             return response
         
         else:
@@ -79,7 +79,6 @@ class UserLogoutView(APIView):
 
         return response
     
-
 
 
 class CookieTokenRefreshView(TokenRefreshView):

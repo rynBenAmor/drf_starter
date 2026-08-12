@@ -1,4 +1,3 @@
-from django.middleware.csrf import get_token
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import (
@@ -12,42 +11,58 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
+from django.conf import settings
+
+
 
 
 class UserInfoView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
-    def get_object(self):
+    def get_object(self):  # type: ignore[return-value]
         return self.request.user
     
 
 
 class UserRegistrationView(generics.CreateAPIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
     serializer_class = RegisteredUserSerializer
 
 
+
+
 class UserLoginView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
     def post(self, request):
         # ? validation
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.validated_data
+            user = serializer.validated_data["user"]
             # ? refresh token creation
             refresh_token =  RefreshToken.for_user(user)
             access_token = str(refresh_token.access_token)
     
-            # * send user info and tokens: important for generic jwt authentication
-            response = Response({
-                "user": UserSerializer(user).data,
-                "access": access_token,
-                "refresh": str(refresh_token),
-            }, status=status.HTTP_200_OK
-            )
+            # * send user info :
+            data = {
+                "user": UserSerializer(user).data
+            }
+            # * and tokens: important for generic JWTAuthentication/HybridJwtAuthentication classes
+            if settings.AUTH_EXPOSE_TOKENS:
+                data.update({
+                    "access": access_token,
+                    "refresh": str(refresh_token),
+                })
+
+            response = Response(data, status=status.HTTP_200_OK)
 
             # * set the httponly cookie jwt tokens: important for httpOnly authentication
-            response.set_cookie(key='refresh_token', value=str(refresh_token), httponly=True, samesite='None', secure=True)
-            response.set_cookie(key='access_token', value=access_token, httponly=True, samesite='None', secure=True, max_age=300)
+            if settings.AUTH_USE_HTTPONLY_COOKIES:
+                response.set_cookie(key='refresh_token', value=str(refresh_token), **settings.AUTH_COOKIE_SETTINGS)
+                response.set_cookie(key='access_token', value=access_token, max_age=300, **settings.AUTH_COOKIE_SETTINGS)
 
             # ? InjectCsrfCookieMiddleware already injects the csrf token in every response
             
@@ -66,17 +81,12 @@ class UserLogoutView(APIView):
             try:
                 refresh = RefreshToken(refresh_token)
                 refresh.blacklist()
-            except Exception as e :
-                return Response({"error": f"error while logging out, {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception:
+                pass
 
-            response = Response({"message": "You were successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
-            
-
-        else:
-            response = Response({"error": "no refresh token was found in the request object"}, status=status.HTTP_401_UNAUTHORIZED)
-
+        response = Response({"message": "You were successfully logged out"}, status=status.HTTP_200_OK)
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
         return response
     
 
@@ -93,8 +103,11 @@ class CookieTokenRefreshView(TokenRefreshView):
             refresh = RefreshToken(refresh_token)
             access_token = str(refresh.access_token)
 
-            response = Response({"message": "access token refreshed successfully, come back again :)"}, status=status.HTTP_200_OK)
-            response.set_cookie(key='access_token', value=access_token, httponly=True, samesite='None', secure=True)
+            response = Response({"message": "access token refreshed successfully"}, status=status.HTTP_200_OK)
+            if settings.AUTH_USE_HTTPONLY_COOKIES:
+                response.set_cookie(key='access_token', value=access_token, max_age=300, **settings.AUTH_COOKIE_SETTINGS)
+            else:
+                response.set_cookie(key='access_token', value=access_token)
             return response
         
         except InvalidToken as e:

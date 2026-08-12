@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'django_filters',
 
     # * my apps
     'accounts',
@@ -224,8 +225,16 @@ else:
 
 
 # * ======================================================================
-# * DRF / JWT
+# * DRF / JWT / CUSTOM AUTH
 # * ======================================================================
+AUTH_EXPOSE_TOKENS = True # Enable if using HybridJwtAuthentication/JWTAuthentication auth: custom key to know whether or not to return access and refresh tokens in login view
+AUTH_USE_HTTPONLY_COOKIES = True # if using HybridJwtAuthentication/HttpOnlyCookieAuthentication
+AUTH_COOKIE_SETTINGS = {
+    "httponly": True,
+    "samesite": "None",
+    "secure": DJANGO_IS_PRODUCTION,
+}
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
 
@@ -234,6 +243,14 @@ REST_FRAMEWORK = {
         # 'rest_framework_simplejwt.authentication.JWTAuthentication', # or simply use this built-in class
 
     ),
+
+    'EXCEPTION_HANDLER': 'a_drf_starter.exceptions.drf_exception_handler',
+
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    )
 
 }
 from datetime import timedelta

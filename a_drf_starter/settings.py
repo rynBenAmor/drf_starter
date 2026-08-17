@@ -227,13 +227,20 @@ else:
 # * ======================================================================
 # * DRF / JWT / CUSTOM AUTH
 # * ======================================================================
-AUTH_EXPOSE_TOKENS = True # Enable if using HybridJwtAuthentication/JWTAuthentication auth: custom key to know whether or not to return access and refresh tokens in login view
-AUTH_USE_HTTPONLY_COOKIES = True # if using HybridJwtAuthentication/HttpOnlyCookieAuthentication
+AUTH_USE_HTTPONLY_COOKIES = False
+AUTH_ACCESS_TOKEN_MAX_AGE = 300
+AUTH_REFRESH_TOKEN_MAX_AGE = 3600*24
 AUTH_COOKIE_SETTINGS = {
     "httponly": True,
-    "samesite": "None",
-    "secure": DJANGO_IS_PRODUCTION,
+    "samesite": "lax", # match django's auth settings
+    "secure": False,# HTTP-only LAN deployment
+    "path": "/",
+    "domain": None,  # Or set to your LAN IP
 }
+
+AUTH_EXPOSE_TOKENS = True 
+
+
 
 # inject csrf token if using httponly cookies auth
 if AUTH_USE_HTTPONLY_COOKIES:

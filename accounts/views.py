@@ -38,65 +38,61 @@ class UserRegistrationView(generics.CreateAPIView):
 
 
 class UserLoginView(APIView):
-    """
-    Custom login view that:
-    1. Validates credentials using DRF's standard serializer
-    2. Sets HTTP-only cookies for JWT tokens (if configured)
-    3. Returns user data + tokens in response (if configured)
-    """
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        # 1. Use DRF's standard serializer for validation
-        serializer = TokenObtainPairSerializer(data=request.data)
-        
+        serializer = UserLoginSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+
         try:
             serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            # Catch validation errors (invalid credentials, inactive user, etc.)
-            logger.warning(f"Login failed: {str(e)}")
+        except ValidationError:
+            logger.warning("Login failed")
             return Response(
                 {"detail": "Invalid credentials or inactive account."},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # 2. Get validated data (user and tokens)
-        user = serializer.user
-        access_token = serializer.validated_data["access"]
-        refresh_token = serializer.validated_data["refresh"]
+        user = serializer.validated_data["user"]
 
-        # 3. Build response data
+        refresh = RefreshToken.for_user(user)
+        access = refresh.access_token
+
         response_data = {
             "user": UserSerializer(user).data,
             "message": "Login successful",
         }
 
-        # 4. Optionally expose tokens in response body
         if settings.AUTH_EXPOSE_TOKENS:
             response_data.update({
-                "access": access_token,
-                "refresh": refresh_token,
+                "access": str(access),
+                "refresh": str(refresh),
             })
 
-        response = Response(response_data, status=status.HTTP_200_OK)
+        response = Response(
+            response_data,
+            status=status.HTTP_200_OK,
+        )
 
-        # 5. Set HTTP-only cookies if configured
         if settings.AUTH_USE_HTTPONLY_COOKIES:
             response.set_cookie(
-                key='access_token',
-                value=access_token,
+                key="access_token",
+                value=str(access),
                 max_age=settings.AUTH_ACCESS_TOKEN_MAX_AGE or 300,
-                **settings.AUTH_COOKIE_SETTINGS
+                **settings.AUTH_COOKIE_SETTINGS,
             )
             response.set_cookie(
-                key='refresh_token',
-                value=refresh_token,
+                key="refresh_token",
+                value=str(refresh),
                 max_age=settings.AUTH_REFRESH_TOKEN_MAX_AGE or 86400 * 7,
-                **settings.AUTH_COOKIE_SETTINGS
+                **settings.AUTH_COOKIE_SETTINGS,
             )
 
         return response
+    
     
 
 class UserLogoutView(APIView):

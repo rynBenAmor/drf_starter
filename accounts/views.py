@@ -10,7 +10,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.conf import settings
 
 
@@ -41,7 +42,7 @@ class UserLoginView(APIView):
         # ? validation
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.validated_data["user"]
+            user = serializer.validated_data
             # ? refresh token creation
             refresh_token =  RefreshToken.for_user(user)
             access_token = str(refresh_token.access_token)
@@ -63,8 +64,8 @@ class UserLoginView(APIView):
             if settings.AUTH_USE_HTTPONLY_COOKIES:
                 response.set_cookie(key='refresh_token', value=str(refresh_token), **settings.AUTH_COOKIE_SETTINGS)
                 response.set_cookie(key='access_token', value=access_token, max_age=300, **settings.AUTH_COOKIE_SETTINGS)
-
-            # ? InjectCsrfCookieMiddleware already injects the csrf token in every response
+                # ? InjectCsrfCookieMiddleware already injects the csrf token in every response if AUTH_USE_HTTPONLY_COOKIES is True
+            
             
             return response
         
@@ -73,9 +74,11 @@ class UserLoginView(APIView):
     
 
 class UserLogoutView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_token = request.COOKIES.get("refresh_token")
+        refresh_token = request.data.get("refresh") or request.COOKIES.get("refresh_token")
 
         if refresh_token:
             try:
@@ -92,23 +95,34 @@ class UserLogoutView(APIView):
 
 
 class CookieTokenRefreshView(TokenRefreshView):
-    def post(self, request):
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
-        refresh_token = request.COOKIES.get("refresh_token")
+    def post(self, request):
+        refresh_token = request.data.get("refresh") or request.COOKIES.get("refresh_token")
 
         if not refresh_token:
             return Response({"error": "no refresh token was found in the request object"}, status=status.HTTP_401_UNAUTHORIZED)
         
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
         try:
-            refresh = RefreshToken(refresh_token)
-            access_token = str(refresh.access_token)
+            serializer.is_valid(raise_exception=True)
+        except (InvalidToken, TokenError) as e:
+            return Response({"error": f"invalid token: {str(e)}"}, status=status.HTTP_401_UNAUTHORIZED)
 
-            response = Response({"message": "access token refreshed successfully"}, status=status.HTTP_200_OK)
-            if settings.AUTH_USE_HTTPONLY_COOKIES:
-                response.set_cookie(key='access_token', value=access_token, max_age=300, **settings.AUTH_COOKIE_SETTINGS)
-            else:
-                response.set_cookie(key='access_token', value=access_token)
-            return response
-        
-        except InvalidToken as e:
-            return Response({"error": f"invalid token: {str(e)}"}, status=status.HTTP_401_UNAUTHORIZED) 
+        data = {
+            "message": "access token refreshed successfully",
+            "access": serializer.validated_data["access"],
+        }
+        if "refresh" in serializer.validated_data:
+            data["refresh"] = serializer.validated_data["refresh"]
+
+        response = Response(data, status=status.HTTP_200_OK)
+        if settings.AUTH_USE_HTTPONLY_COOKIES:
+            response.set_cookie(key='access_token', value=data["access"], max_age=300, **settings.AUTH_COOKIE_SETTINGS)
+            if "refresh" in data:
+                response.set_cookie(key='refresh_token', value=data["refresh"], **settings.AUTH_COOKIE_SETTINGS)
+        else:
+            response.set_cookie(key='access_token', value=data["access"])
+        return response
+ 

@@ -235,6 +235,10 @@ AUTH_COOKIE_SETTINGS = {
     "secure": DJANGO_IS_PRODUCTION,
 }
 
+# inject csrf token if using httponly cookies auth
+if AUTH_USE_HTTPONLY_COOKIES:
+    MIDDLEWARE += 'accounts.middlewares.InjectCsrfCookieMiddleware'
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
 
